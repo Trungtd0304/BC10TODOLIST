@@ -2,7 +2,6 @@
 import Task from "./../models/Task.js";
 import TaskService from "./../services/TaskService.js";
 
-const validation = new Validation();
 const task = new TaskService();
 //tạo hàm dom tới ID
 const getEle = (id) => document.getElementById(id);
@@ -12,9 +11,12 @@ const renderTask = (list) => {
   return list.reduce((contentHTML, item) => {
     return (contentHTML += `
         <li>            
-            <button class="complete" onclick="updTask(${item.id})"><i class="far fa-check-circle"></i></button>            
+            <button class="complete" onclick="updTask(${item.id})"><span class="far fa-check-circle"></span></button>            
             <span>${item.text}</span>            
-            <button class="remove" onclick="delTask(${item.id})"><i class="fa fa-trash-alt"></button>            
+            <div>            
+              <button class="remove" onclick="ediTask(${item.id})"><span class="fas fa-wrench"></span></button> 
+              <button class="remove" onclick="delTask(${item.id})"><span class="fa fa-trash-alt"></button>            
+            </div>
         </li>
     `);
   }, "");
@@ -33,20 +35,34 @@ const fetchData = () => {
        */
       let pending = [];
       let final = [];
-
       //tạo vòng lập check data từ API
       result.data.forEach((list) => {
         if (list.checked) {
           final.push(list);
+          // console.log(final);
         } else {
           pending.push(list);
-          console.log(pending);
+          // console.log(pending);
         }
+      });
+      //đưa data đã có ra UI
+      getEle("newTask").value = ""; //xoá nhập liệu
+      getEle("todo").innerHTML = renderTask(pending); //đưa list pending ra HTML
+      getEle("completed").innerHTML = renderTask(final); //đưa list final ra HTML
 
-        //đưa data đã có ra UI
-        getEle("newTask").value = ""; //xoá nhập liệu
-        getEle("todo").innerHTML = renderTask(pending); //đưa list pending ra HTML
-        getEle("complete").innerHTML = renderTask(final); //đưa list final ra HTML
+      //sắp sếp a-z
+      getEle("two").addEventListener("click", () => {
+        pending.sort((a, b) => a.text.localeCompare(b.text));
+        final.sort((a, b) => a.text.localeCompare(b.text));
+        getEle("todo").innerHTML = renderTask(pending);
+        getEle("completed").innerHTML = renderTask(final);
+      });
+      //sắp sếp z-a
+      getEle("three").addEventListener("click", () => {
+        pending.sort((a, b) => b.text.localeCompare(a.text));
+        final.sort((a, b) => b.text.localeCompare(a.text));
+        getEle("todo").innerHTML = renderTask(pending);
+        getEle("completed").innerHTML = renderTask(final);
       });
     })
     .catch((err) => {
@@ -56,26 +72,97 @@ const fetchData = () => {
 fetchData();
 
 // tạo hàm thêm task mới vào list
-getEle("addItem").addEventListener("click", () => {
+const addTask = () => {
   let newTask = getEle("newTask").value;
 
   let taskList = new Task(newTask, false);
+  if (newTask.trim() !== "") {
+    task
+      .callApi("TODOLIST", "POST", taskList)
+      .then((result) => {
+        fetchData();
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  }
+};
+window.addTask = addTask;
 
-  //   let isValid = true;
-  //   isValid &= validation.testEmpty(
-  //     newTask,
-  //     "divErr",
-  //     "Please enter an activity"
-  //   );
-
+// tạo hàm update task final hoặc chưa hoàn thành
+const updTask = (id) => {
   task
-    .callApi("TODOLIST", "POST", taskList)
+    .callApi(`TODOLIST/${id}`, "GET", null)
+    .then((result) => {
+      let isCheck = false;
+      if (isCheck === result.data.checked) {
+        isCheck = true;
+        console.log(isCheck);
+      }
+      let taskList = new Task(result.data.text, isCheck, id);
+      console.log(isCheck);
+      task
+        .callApi(`TODOLIST/${taskList.id}`, "PUT", taskList)
+        .then((result) => {
+          fetchData();
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+    })
+
+    .catch((err) => {
+      console.log(err);
+    });
+};
+window.updTask = updTask;
+
+// tạo hàm xoá task
+const delTask = (id) => {
+  task
+    .callApi(`TODOLIST/${id}`, "DELETE", null)
     .then((result) => {
       fetchData();
     })
     .catch((err) => {
       console.log(err);
     });
-});
+};
+window.delTask = delTask;
 
-// window.newTask = newTask;
+// tạo hàm chỉnh sửa task
+const ediTask = (id) => {
+  task
+    .callApi(`TODOLIST/${id}`, "GET", null)
+    .then((result) => {
+      getEle("newTask").value = result.data.text;
+      getEle(
+        "addItem"
+      ).innerHTML = `<i class="fa fa-plus" onclick="changeTask(${id})" title="Add Task"></i>`;
+    })
+    .catch((err) => {
+      console.log(err);
+    });
+};
+window.ediTask = ediTask;
+
+// tạo hàm chinh sua text task
+const changeTask = (id, checked) => {
+  let newTask = getEle("newTask").value;
+
+  let taskList = new Task(newTask, checked, id);
+  if (newTask.trim() !== "") {
+    task
+      .callApi(`TODOLIST/${taskList.id}`, "PUT", taskList)
+      .then((result) => {
+        fetchData();
+        getEle(
+          "addItem"
+        ).innerHTML = `<i class="fa fa-plus" onclick="addTask()"></i>`;
+      })
+      .catch((err) => {
+        console.log(err);
+      });
+  }
+};
+window.changeTask = changeTask;
