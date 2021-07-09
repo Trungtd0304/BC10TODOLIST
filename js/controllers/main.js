@@ -166,3 +166,10 @@ const changeTask = (id, checked) => {
   }
 };
 window.changeTask = changeTask;
+
+// tạo loading khi trang web kéo dữ liệu về
+
+$(window).on("load", function () {
+  $("body").removeClass("preloading");
+  $(".lds-spinner").fadeOut("fast");
+});
